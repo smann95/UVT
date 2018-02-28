@@ -17,12 +17,15 @@ double T;
 int sp;
 double k = 1;
 
+std::ofstream data;
+
 std::vector<particle> particles;
+std::vector<particle> particles_projection;
 
 double get_distance(int a, int b, const std::vector<particle> & v);
-void gib_data_bls(std::ofstream data);
+void gib_data_bls();
 double get_pe();
-bool evaluate_pe();
+bool evaluate_pe(double old_pe, double new_pe);
 
 double get_random_number(int a, int b)
 {
@@ -48,40 +51,44 @@ void move_particle()
          dy = get_random_number(0, 0.5*L),
          dz = get_random_number(0, 0.5*L);
 
-  int n = rand() % particles.size();
+  int n = rand() % particles_projection.size();
 
   int r = rand() % 2;
 
-  if (rand == 0){
-    particles[n].x[0] += dx;
-    particles[n].x[1] += dy;
-    particles[n].x[2] += dz;
+  if (r == 0){
+    particles_projection[n].x[0] += dx;
+    particles_projection[n].x[1] += dy;
+    particles_projection[n].x[2] += dz;
   }
   else {
-    particles[n].x[0] -= dx;
-    particles[n].x[1] -= dy;
-    particles[n].x[2] -= dz;
+    particles_projection[n].x[0] -= dx;
+    particles_projection[n].x[1] -= dy;
+    particles_projection[n].x[2] -= dz;
   }
 }
 
 void add_particle()
 {
   particle temp;
-  particles.push_back(temp);
+  particles_projection.push_back(temp);
 
-  particles.back().x[0] = get_random_number(0, L);
-  particles.back().x[1] = get_random_number(0, L);
-  particles.back().x[1] = get_random_number(0, L);
+  particles_projection.back().x[0] = get_random_number(0, L);
+  particles_projection.back().x[1] = get_random_number(0, L);
+  particles_projection.back().x[1] = get_random_number(0, L);
 }
 
 void remove_particle()
 {
-  particles.erase(rand() % particles.size());
+  int n = rand() % particles_projection.size();
+
+  particles_projection.erase(particles_projection.begin() + n);
 }
 
 void next_step()
 {
- // double old_pe = get_pe();
+ double old_pe = get_pe();
+
+ particles_projection = particles;
 
   double pick = get_random_number(1, 3);
 
@@ -95,19 +102,12 @@ void next_step()
     remove_particle();
   }
 
- /* double new_pe = get_pe();
+ double new_pe = get_pe();
 
-  if (!(evaluate_pe(old_pe, new_pe) == true)){
-  if (pick < 2){
-    particles.pop_back;
+  if (evaluate_pe(old_pe, new_pe) == true){
+    particles = particles_projection;
   }
-  if (1 < pick < 2){
-    move_particle();
-  }
-  if (pick <= 3){
-    remove_particle();
-  }                  
-  }*/
+  gib_data_bls();
 }
 double get_distance(int a, int b, const std::vector<particle> & v)
 {
@@ -147,9 +147,12 @@ double get_pe()
   double epsilon = 1.73e-21,
          e = epsilon;
   double pe = 0;
-  for (size_type a = 0; a < particles.size(); a++){
-    for (size_type b = a + 1; b < particles.size(); b++){
-      double r = get_distance(a, b, particles),
+
+  int np = particles_projection.size();
+
+  for (int a = 0; a < np; a++){
+    for (int b = a + 1; b < np; b++){
+      double r = get_distance(a, b, particles_projection),
              r2 = r*r,
              r6 = r2*r2*r2,
              r12 = r6*r6;
@@ -173,11 +176,12 @@ bool evaluate_pe(double old_pe, double new_pe)
   return good;
 }
 
-void gib_data_bls(std::ofstream data)
+void gib_data_bls()
 {
-  data << particles.size() << "\n\n";
+  int np = particles.size();
+  data << np << "\n\n";
 
-  for (auto n = 0; n < particles.size(); n++){
+  for (int n = 0; n < np; n++){
     data << "Ar " << particles[n].x[0] << " " <<
       particles[n].x[1] << " " << particles[n].x[2] << "\n";
   }
