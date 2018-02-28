@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/sean/Documents/space_worksheet/UVT/UVT_MC.cpp
+UVT_MC.h
+/home/sean/Documents/space_worksheet/UVT/UVT_MC.h
+
+/home/sean/Documents/space_worksheet/UVT/UVT_MC.h
+iostream
+-
+cmath
+-
+string
+-
+random
+-
+cstdlib
+-
+math.h
+-
+fstream
+-
+
