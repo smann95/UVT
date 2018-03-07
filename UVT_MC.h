@@ -12,104 +12,164 @@ struct particle{
   std::string type;
 };
 
-double L;
-double T;
-int sp;
-double k = 1;
+enum stepType {move, add, destroy};
+
+typedef struct{
+
+double L,
+ T,
+k = 1;
+int sp,
+    steps;
+
+double sigma,
+s,
+s2,
+s6,
+s12,
+epsilon;
+
+double pe;
+
+double dx,
+dy,
+dz;
+
+
+bool good;
+
+stepType step;
 
 std::vector<particle> particles;
+std::vector<particle> particles_projection;
+int p;
+} system_t;
 
-double get_distance(int a, int b, const std::vector<particle> & v);
-void gib_data_bls(std::ofstream data);
-double get_pe();
-bool evaluate_pe();
+double get_distance(system_t * sys, int a, int b);
+void gib_data_bls(system_t * sys, std::ofstream & data);
+double get_pe(system_t * sys);
+bool evaluate_pe(system_t * sys, double new_pe, double old_pe);
+void no_leave_box(system_t * sys);
 
 double get_random_number(int a, int b)
 {
   return a + (random()/((double)RAND_MAX)*(b - a));
 }
 
-void create_matter()
+void create_matter(system_t * sys)
 {
-  for (int i = 0; i < sp; i++){
+  for (int i = 0; i < sys->sp; i++){
     particle temp;
-    particles.push_back(temp);
+   sys->particles.push_back(temp);
   }
-  for (int n = 0; n < sp; n++){
-    particles[n].x[0] = get_random_number(0, L);
-    particles[n].x[1] = get_random_number(0, L);
-    particles[n].x[2] = get_random_number(0, L);
+  for (int n = 0; n < sys->sp; n++){
+    sys->particles[n].x[0] = get_random_number(0, sys->L);
+    sys->particles[n].x[1] = get_random_number(0, sys->L);
+    sys->particles[n].x[2] = get_random_number(0, sys->L);
   }
 }
 
-void move_particle()
+void move_particle(system_t * sys)
 {
-  double dx = get_random_number(0, 0.5*L),
-         dy = get_random_number(0, 0.5*L),
-         dz = get_random_number(0, 0.5*L);
+   sys->dx = get_random_number(0, 0.5*sys->L),
+         sys->dy = get_random_number(0, 0.5*sys->L),
+         sys->dz = get_random_number(0, 0.5*sys->L);
 
-  int n = rand() % particles.size();
+   sys->p = rand() % sys->particles_projection.size();
 
-  int r = rand() % 2;
+  int choose = rand() % 2;
 
-  if (rand == 0){
-    particles[n].x[0] += dx;
-    particles[n].x[1] += dy;
-    particles[n].x[2] += dz;
+  if (choose == 0){
+    sys->particles_projection[sys->p].x[0] += sys->dx;
+    sys->particles_projection[sys->p].x[1] += sys->dy;
+    sys->particles_projection[sys->p].x[2] += sys->dz;
   }
   else {
-    particles[n].x[0] -= dx;
-    particles[n].x[1] -= dy;
-    particles[n].x[2] -= dz;
+    sys->particles_projection[sys->p].x[0] -= sys->dx;
+    sys->particles_projection[sys->p].x[1] -= sys->dy;
+    sys->particles_projection[sys->p].x[2] -= sys->dz;
+  }
+  no_leave_box(sys);
+}
+
+void no_leave_box(system_t * sys)
+{
+  int np = sys->particles.size();
+
+  for (int n = 0; n < np; n++){
+    for (int i = 0; i <= 2; i++){
+      if (sys->particles_projection[n].x[i] > sys->L){
+        sys->particles_projection[n].x[i] -= sys->L;
+      }
+      if (sys->particles_projection[n].x[i] < 0){
+        sys->particles_projection[n].x[i] += sys->L;
+      }
+    }
   }
 }
 
-void add_particle()
+void add_particle(system_t* sys)
 {
   particle temp;
-  particles.push_back(temp);
+  sys->particles_projection.push_back(temp);
 
-  particles.back().x[0] = get_random_number(0, L);
-  particles.back().x[1] = get_random_number(0, L);
-  particles.back().x[1] = get_random_number(0, L);
+  sys->particles_projection.back().x[0] = get_random_number(0, sys->L);
+  sys->particles_projection.back().x[1] = get_random_number(0, sys->L);
+  sys->particles_projection.back().x[2] = get_random_number(0, sys->L);
 }
 
-void remove_particle()
+void remove_particle(system_t * sys)
 {
-  particles.erase(rand() % particles.size());
+  if(!sys->particles_projection.size()){ return;}
+   sys->p = rand() % sys->particles_projection.size();
+
+  sys->particles_projection.erase(sys->particles_projection.begin() + sys->p);
 }
 
-void next_step()
+void next_step(system_t * sys, std::ofstream & data)
 {
- // double old_pe = get_pe();
+  double old_pe = get_pe(sys);
 
-  double pick = get_random_number(1, 3);
+  sys->particles_projection = sys->particles;
 
-  if (pick < 2){
-    add_particle();
+  double pick;
+  if(sys->particles_projection.size() == 1) {
+    pick = get_random_number(0,2);//avoids floating point errror
   }
-  if ((1 < pick) && (pick < 2)){
-    move_particle();
-  }
-  if (pick <= 3){
-    remove_particle();
+  else {
+    pick = get_random_number(0, 3);
   }
 
- /* double new_pe = get_pe();
+  if (pick < 1){
+    add_particle(sys);
+    sys->step = add;
+  }
+  else if ((1 < pick) && (pick < 2)){
+    move_particle(sys);
 
-  if (!(evaluate_pe(old_pe, new_pe) == true)){
-  if (pick < 2){
-    particles.pop_back;
+    sys->step = move;
   }
-  if (1 < pick < 2){
-    move_particle();
+  else {
+    remove_particle(sys);
+    sys->step = destroy;
   }
-  if (pick <= 3){
-    remove_particle();
-  }                  
-  }*/
+
+  double new_pe = get_pe(sys);
+
+  if (evaluate_pe(sys, old_pe, new_pe) != true){ 
+    if (sys->step == add){
+      sys->particles.erase(sys->particles.end()-1);
+    }
+    else if (sys->step == move){
+
+    }
+    else if (sys->step == destroy){
+    }
+  }
+  gib_data_bls(sys, data);
 }
-double get_distance(int a, int b, const std::vector<particle> & v)
+
+double get_distance(system_t * sys, int a, int b, const std::vector<particle> & v)
 {
   double d;
   double change_x;
@@ -117,16 +177,16 @@ double get_distance(int a, int b, const std::vector<particle> & v)
   double change_z;
 
   change_x = fabs(&v[a].x[0] - &v[b].x[0]);
-  if (change_x > 0.5*L) {
-    change_x -= 0.5*L;
+  if (change_x > 0.5*sys->L) {
+    change_x -= 0.5*sys->L;
   }
   change_y = fabs(&v[a].x[1] - &v[b].x[1]);
-  if (change_y > 0.5*L) {
-    change_y -= 0.5*L;
+  if (change_y > 0.5*sys->L) {
+    change_y -= 0.5*sys->L;
   }
   change_z = fabs(&v[a].x[2] - &v[b].x[2]); 
-  if (change_z > 0.5*L) {
-    change_z -= 0.5*L;
+  if (change_z > 0.5*sys->L) {
+    change_z -= 0.5*sys->L;
   }
   double change2_x = change_x * change_x;
   double change2_y = change_y * change_y;
@@ -136,49 +196,52 @@ double get_distance(int a, int b, const std::vector<particle> & v)
   return d;
 }
 
-double get_pe()
+double get_pe(system_t * sys)
 {
-  double sigma = 3.345,
-         s = sigma,
+  sys->sigma = 3.345;
+         double s = sys->sigma,
          s2 = s*s,
          s6 = s2*s2*s2,
          s12 = s6*s6;
 
-  double epsilon = 1.73e-21,
-         e = epsilon;
-  double pe = 0;
-  for (size_type a = 0; a < particles.size(); a++){
-    for (size_type b = a + 1; b < particles.size(); b++){
-      double r = get_distance(a, b, particles),
+  sys->epsilon = 1.73e-21;
+         double e = sys->epsilon;
+ sys->pe = 0;
+
+  int np = sys->particles_projection.size();
+
+  for (int a = 0; a < np; a++){
+    for (int b = a + 1; b < np; b++){
+      double r = get_distance(sys, a, b, sys->particles_projection),
              r2 = r*r,
              r6 = r2*r2*r2,
              r12 = r6*r6;
-      pe += 4*e*((s12/r12) - (s6/r6));
+      sys->pe += 4*e*((s12/r12) - (s6/r6));
     }
   }
-  return pe;
+  return sys->pe;
 }
 
-bool evaluate_pe(double old_pe, double new_pe)
+bool evaluate_pe(system_t * sys, double new_pe, double old_pe)
 {
-  bool good;
   double change_pe = new_pe - old_pe;
-  double prob = exp(-1*change_pe*(1/(k*T)));
+  double prob = exp(-1*change_pe*(1/(sys->k*sys->T)));
   if (prob > ((double)random()/(double)RAND_MAX)){
-    good = true;
+    sys->good = true;
   }
   else {
-    good = false;
+    sys->good = false;
   }
-  return good;
+  return sys->good;
 }
 
-void gib_data_bls(std::ofstream data)
+void gib_data_bls(system_t * sys, std::ofstream & data)
 {
-  data << particles.size() << "\n\n";
+  int np = sys->particles.size();
+  data << np << "\n\n";
 
-  for (auto n = 0; n < particles.size(); n++){
-    data << "Ar " << particles[n].x[0] << " " <<
-      particles[n].x[1] << " " << particles[n].x[2] << "\n";
+  for (int n = 0; n < np; n++){
+    data << "Ar " << sys->particles[n].x[0] << " " <<
+      sys->particles[n].x[1] << " " << sys->particles[n].x[2] << "\n";
   }
 }
