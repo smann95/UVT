@@ -18,7 +18,7 @@ typedef struct{
 
   double L,
          T,
-         k = 1;
+         k = 0.00138;
   int sp,
       steps;
 
@@ -30,7 +30,6 @@ typedef struct{
   double dx,
          dy,
          dz;
-
 
   bool good;
 
@@ -44,10 +43,12 @@ typedef struct{
   int choose;
 } system_t;
 
+std::ofstream energies;
+
 double get_distance(system_t * sys, int a, int b);
 void gib_data_bls(system_t * sys, std::ofstream & data);
 double get_pe(system_t * sys);
-bool evaluate_pe(system_t * sys, double new_pe, double old_pe);
+void evaluate_pe(system_t * sys, double new_pe, double old_pe);
 void no_leave_box(system_t * sys);
 
 double get_random_number(int a, int b)
@@ -76,7 +77,7 @@ void move_particle(system_t * sys)
 
   sys->p = rand() % sys->particles.size();
 
-  sys->choose = rand() % 2;
+    sys->choose = rand() % 2;
 
   if (sys->choose == 0){
     sys->particles[sys->p].x[0] += sys->dx;
@@ -121,20 +122,15 @@ void remove_particle(system_t * sys)
 {
   if(!sys->particles.size()){ return;}
   sys->p = rand() % sys->particles.size();
-
   sys->x = sys->particles[sys->p].x[0];
   sys->y = sys->particles[sys->p].x[1];
   sys->z = sys->particles[sys->p].x[2];
-
-
-
   sys->particles.erase(sys->particles.begin() + sys->p);
 }
 
 void next_step(system_t * sys, std::ofstream & data)
 {
   double old_pe = get_pe(sys);
-
   sys->particles = sys->particles;
 
   double pick;
@@ -159,26 +155,16 @@ void next_step(system_t * sys, std::ofstream & data)
     sys->step = destroy;
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
   double new_pe = get_pe(sys);
+  evaluate_pe(sys, new_pe, old_pe);
 
-  if (evaluate_pe(sys, old_pe, new_pe) != true){ 
+  if (sys->good == false){ 
     if (sys->step == add){
+      std::cout << "wowie" << std::endl;
       sys->particles.erase(sys->particles.end()-1);
     }
     else if (sys->step == move){
+      std::cout << "hi" << std::endl;
       if (sys->choose == 0){
         sys->particles[sys->p].x[0] -= sys->dx;
         sys->particles[sys->p].x[1] -= sys->dy;
@@ -191,11 +177,15 @@ void next_step(system_t * sys, std::ofstream & data)
       }
     }
     else if (sys->step == destroy){
+      std::cout << "hello" << std::endl;
       particle temp;
       temp.x[0] = sys->x;
       temp.x[1] = sys->y;
       temp.x[2] = sys->z;
       sys->particles.push_back(temp);
+    }
+    else{
+      std::cout << "uh oh" << std::endl;
     }
   }
   gib_data_bls(sys, data);
@@ -208,21 +198,21 @@ double get_distance(system_t * sys, int a, int b, const std::vector<particle> & 
   double change_y;
   double change_z;
 
-  change_x = fabs(&v[a].x[0] - &v[b].x[0]);
+  change_x = fabs(v[a].x[0] - v[b].x[0]);
   if (change_x > 0.5*sys->L) {
     change_x -= 0.5*sys->L;
   }
-  change_y = fabs(&v[a].x[1] - &v[b].x[1]);
+  change_y = fabs(v[a].x[1] - v[b].x[1]);
   if (change_y > 0.5*sys->L) {
     change_y -= 0.5*sys->L;
   }
-  change_z = fabs(&v[a].x[2] - &v[b].x[2]); 
+  change_z = fabs(v[a].x[2] - v[b].x[2]); 
   if (change_z > 0.5*sys->L) {
     change_z -= 0.5*sys->L;
   }
-  double change2_x = change_x * change_x;
-  double change2_y = change_y * change_y;
-  double change2_z = change_z * change_z;
+  double change2_x = change_x*change_x;
+  double change2_y = change_y*change_y;
+  double change2_z = change_z*change_z;
 
   d = sqrt(change2_x + change2_y + change2_z);
   return d;
@@ -230,13 +220,13 @@ double get_distance(system_t * sys, int a, int b, const std::vector<particle> & 
 
 double get_pe(system_t * sys)
 {
-  sys->sigma = 3.345;
+  sys->sigma = 0.03345;
   double s = sys->sigma,
          s2 = s*s,
          s6 = s2*s2*s2,
          s12 = s6*s6;
 
-  sys->epsilon = 1.73e-21;
+  sys->epsilon = 0.173;
   double e = sys->epsilon;
   sys->pe = 0;
 
@@ -254,7 +244,7 @@ double get_pe(system_t * sys)
   return sys->pe;
 }
 
-bool evaluate_pe(system_t * sys, double new_pe, double old_pe)
+void evaluate_pe(system_t * sys, double new_pe, double old_pe)
 {
   double change_pe = new_pe - old_pe;
   double prob = exp(-1*change_pe*(1/(sys->k*sys->T)));
@@ -264,7 +254,7 @@ bool evaluate_pe(system_t * sys, double new_pe, double old_pe)
   else {
     sys->good = false;
   }
-  return sys->good;
+  std::cout << prob << std::endl;
 }
 
 void gib_data_bls(system_t * sys, std::ofstream & data)
@@ -274,6 +264,8 @@ void gib_data_bls(system_t * sys, std::ofstream & data)
 
   for (int n = 0; n < np; n++){
     data << "Ar " << sys->particles[n].x[0] << " " <<
-      sys->particles[n].x[1] << " " << sys->particles[n].x[2] << "\n";
+      sys->particles[n].x[1] << " " << sys->particles[n].x[2] << sys->good 
+      << "\n";
   }
 }
+
