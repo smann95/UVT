@@ -12,13 +12,16 @@ struct particle{
   std::string type;
 };
 
+const double E = exp(1);
+const double k = 1.38e-23;
+
 enum stepType {move, add, destroy};
 
 typedef struct{
 
   double L,
          T,
-         k = 0.00138;
+         k = 1.38e-23;
   int sp,
       steps;
 
@@ -77,7 +80,7 @@ void move_particle(system_t * sys)
 
   sys->p = rand() % sys->particles.size();
 
-    sys->choose = rand() % 2;
+  sys->choose = rand() % 2;
 
   if (sys->choose == 0){
     sys->particles[sys->p].x[0] += sys->dx;
@@ -98,7 +101,7 @@ void no_leave_box(system_t * sys)
 
   for (int n = 0; n < np; n++){
     for (int i = 0; i <= 2; i++){
-      if (sys->particles[n].x[i] > sys->L){
+      if (sys->particles[n].x[i] >= sys->L){
         sys->particles[n].x[i] -= sys->L;
       }
       if (sys->particles[n].x[i] < 0){
@@ -131,14 +134,14 @@ void remove_particle(system_t * sys)
 void next_step(system_t * sys, std::ofstream & data)
 {
   double old_pe = get_pe(sys);
-  sys->particles = sys->particles;
+  std::cout << "Old pe: " << old_pe << std::endl;
 
   double pick;
   if(sys->particles.size() == 1) {
     pick = get_random_number(0,2);//avoids floating point errror
   }
   else {
-    pick = get_random_number(0, 3);
+    pick = get_random_number(0,3);
   }
 
   if (pick < 1){
@@ -156,6 +159,7 @@ void next_step(system_t * sys, std::ofstream & data)
   }
 
   double new_pe = get_pe(sys);
+  std::cout << "New pe: " << new_pe << std::endl;
   evaluate_pe(sys, new_pe, old_pe);
 
   if (sys->good == false){ 
@@ -169,6 +173,7 @@ void next_step(system_t * sys, std::ofstream & data)
         sys->particles[sys->p].x[0] -= sys->dx;
         sys->particles[sys->p].x[1] -= sys->dy;
         sys->particles[sys->p].x[2] -= sys->dz;
+        no_leave_box(sys);
       }
       else {
         sys->particles[sys->p].x[0] += sys->dx;
@@ -214,19 +219,19 @@ double get_distance(system_t * sys, int a, int b, const std::vector<particle> & 
   double change2_y = change_y*change_y;
   double change2_z = change_z*change_z;
 
-  d = sqrt(change2_x + change2_y + change2_z);
+  d = sqrt(change2_x + change2_y + change2_z)*1e-10;
   return d;
 }
 
 double get_pe(system_t * sys)
 {
-  sys->sigma = 0.03345;
+  sys->sigma = 3.4e-10;
   double s = sys->sigma,
          s2 = s*s,
          s6 = s2*s2*s2,
          s12 = s6*s6;
 
-  sys->epsilon = 0.173;
+  sys->epsilon = 1.65e-21;
   double e = sys->epsilon;
   sys->pe = 0;
 
@@ -246,15 +251,40 @@ double get_pe(system_t * sys)
 
 void evaluate_pe(system_t * sys, double new_pe, double old_pe)
 {
+  double condition;
+  double volume = sys->L*sys->L*sys->L*1e-30;
   double change_pe = new_pe - old_pe;
-  double prob = exp(-1*change_pe*(1/(sys->k*sys->T)));
-  if (prob > ((double)random()/(double)RAND_MAX)){
-    sys->good = true;
+  int pool = sys->particles.size();
+  double beta = (1/(sys->T*sys->k));
+  double boltzmann = pow(E, -1*change_pe*beta);
+  if (sys->step == move){
+    condition = boltzmann;
+    if (condition > ((double)random()/(double)RAND_MAX)){
+      sys->good = true;
+    }
+    else {
+      sys->good = false;
+    }
+    std::cout << "Boltzmann: " <<  boltzmann << std::endl; 
   }
-  else {
-    sys->good = false;
+  if (sys->step == add){
+    condition = boltzmann*volume/(sys->T*(double)pool);
+    if (condition > ((double)random()/(double)RAND_MAX)){
+      sys->good = true;
+    }
+    else {
+      sys->good = false;
+    }
   }
-  std::cout << prob << std::endl;
+  if (sys->step == destroy){
+    condition = boltzmann*sys->T*((double)pool + 1)/volume;
+    if (condition > ((double)random()/(double)RAND_MAX)){
+      sys->good = true;
+    }
+    else {
+      sys->good = false;
+    }
+  }
 }
 
 void gib_data_bls(system_t * sys, std::ofstream & data)
