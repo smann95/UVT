@@ -56,7 +56,7 @@ void no_leave_box(system_t * sys);
 
 double get_random_number(int a, int b)
 {
-  return a + (random()/((double)RAND_MAX)*(b - a));
+  return a + (rand()/((double)RAND_MAX)*(b - a));
 }
 
 void create_matter(system_t * sys)
@@ -265,7 +265,6 @@ void evaluate_pe(system_t * sys, double new_pe, double old_pe)
     else {
       sys->good = false;
     }
-    std::cout << "Boltzmann: " <<  boltzmann << std::endl; 
   }
   if (sys->step == add){
     condition = boltzmann*volume/(sys->T*(double)pool);
@@ -275,6 +274,7 @@ void evaluate_pe(system_t * sys, double new_pe, double old_pe)
     else {
       sys->good = false;
     }
+    std::cout << "Condition: " << condition << std::endl;
   }
   if (sys->step == destroy){
     condition = boltzmann*sys->T*((double)pool + 1)/volume;
@@ -294,7 +294,7 @@ void gib_data_bls(system_t * sys, std::ofstream & data)
 
   for (int n = 0; n < np; n++){
     data << "Ar " << sys->particles[n].x[0] << " " <<
-      sys->particles[n].x[1] << " " << sys->particles[n].x[2] << sys->good 
+      sys->particles[n].x[1] << " " << sys->particles[n].x[2] 
       << "\n";
   }
 }
